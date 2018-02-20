@@ -323,11 +323,10 @@
 
           "/opt/aws/bin/cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r WebServerOne ",
           "         --region ", { "Ref" : "AWS::Region" }, "\n",
+		  "/opt/aws/bin/cfn-signal -e $? '", { "Ref" : "M1WaitHandle" }, "'\n",
           "# Setup correct file ownership\n",
-          "chown -R apache:apache /var/www/html/wordpress\n",		  
-		  "# Signal the status from cfn-init\n",
-			"/opt/aws/bin/cfn-signal -e 0 -r \"WordPress Creation Complete\" '", { "Ref" : "M1WaitHandle" },
-			"'\n"		  
+          "chown -R apache:apache /var/www/html/wordpress\n"		  
+	  
         ]]}},
 		"Tags" : [{
 		"Key" : "Name","Value" : "wordpress-Medium-server1"}] 		
@@ -416,11 +415,10 @@
           "/opt/aws/bin/cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r WebServerTwo ",
           "         --region ", { "Ref" : "AWS::Region" }, "\n",
 
+		  "/opt/aws/bin/cfn-signal -e $? '", { "Ref" : "M2WaitHandle" }, "'\n",
           "# Setup correct file ownership\n",
-          "chown -R apache:apache /var/www/html/wordpress\n",		  
-		  "# Signal the status from cfn-init\n",
-			"/opt/aws/bin/cfn-signal -e 0 -r \"WordPress Creation Complete\" '", { "Ref" : "M2WaitHandle" },
-			"'\n"		
+          "chown -R apache:apache /var/www/html/wordpress\n"		  
+	
         ]]}},
 		"Tags" : [{
 		"Key" : "Name","Value" : "wordpress-Medium-server2"}] 
