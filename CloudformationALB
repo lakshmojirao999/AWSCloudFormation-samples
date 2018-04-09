@@ -1,0 +1,271 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Kubernetes Ingress for AWS Controller: Load Balancers stack",
+    "Parameters": {
+        "ClusterIDParameter": {
+            "Type": "String",
+            "Description": "The ClusterID value used to tag resources"
+        },
+        "LoadBalancerNameParameter": {
+            "Type": "String",
+            "Description": "The new Load Balancer Name",
+            "MaxLength": 32
+        },
+        "LoadBalancerSecurityGroupParameter": {
+            "Type": "AWS::EC2::SecurityGroup::Id",
+            "Description": "The security group ID for the Load Balancer"
+        },
+        "LoadBalancerSubnetsParameter": {
+            "Type": "List<AWS::EC2::Subnet::Id>",
+            "Description": "The list of subnets IDs for the Load Balancer"
+        },
+        "TargetGroupHealthCheckPathParameter": {
+            "Type": "String",
+            "Description": "The healthcheck path",
+            "Default": "/kube-system/healthz"
+        },
+        "TargetGroupHealthCheckPortParameter": {
+            "Type": "Number",
+            "Description": "The healthcheck port",
+            "Default": 9999
+        },
+        "TargetGroupVPCIDParameter": {
+            "Type": "AWS::EC2::VPC::Id",
+            "Description": "The VPCID for the TargetGroup"
+        },
+        "ListenerCertificateParameter": {
+            "Type": "String",
+            "Description": "The HTTPS Listener certificate ARN (IAM/ACM)",
+            "Default": ""
+        }
+    },
+    "Conditions": {
+        "CreateHTTPSListener": {
+            "Fn::Not": [
+                {
+                    "Fn::Equals": [
+                        {
+                            "Ref": "ListenerCertificateParameter"
+                        },
+                        ""
+                    ]
+                }
+            ]
+        }
+    },
+    "Resources": {
+        "ALBHTTPListener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties": {
+                "DefaultActions": [
+                    {
+                        "Type": "forward",
+                        "TargetGroupArn": {
+                            "Ref": "ALBTargetGroup"
+                        }
+                    }
+                ],
+                "LoadBalancerArn": {
+                    "Ref": "IngressLoadBalancer"
+                },
+                "Port": 80,
+                "Protocol": "HTTP"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "78e381ca-5cf0-4f7b-ab16-abfcf06c791c"
+                }
+            }
+        },
+        "ALBHTTPSListener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Condition": "CreateHTTPSListener",
+            "Properties": {
+                "DefaultActions": [
+                    {
+                        "Type": "forward",
+                        "TargetGroupArn": {
+                            "Ref": "ALBTargetGroup"
+                        }
+                    }
+                ],
+                "LoadBalancerArn": {
+                    "Ref": "IngressLoadBalancer"
+                },
+                "Port": 443,
+                "Protocol": "HTTPS",
+                "Certificates": [
+                    {
+                        "CertificateArn": {
+                            "Ref": "ListenerCertificateParameter"
+                        }
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "59afacd1-4e36-42c2-90c3-73c111cf4261"
+                }
+            }
+        },
+        "IngressLoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties": {
+                "Name": {
+                    "Ref": "LoadBalancerNameParameter"
+                },
+                "SecurityGroups": [
+                    {
+                        "Ref": "LoadBalancerSecurityGroupParameter"
+                    }
+                ],
+                "Subnets": {
+                    "Ref": "LoadBalancerSubnetsParameter"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "LoadBalancerNameParameter"
+                        }
+                    },
+                    {
+                        "Key": "ClusterID",
+                        "Value": {
+                            "Ref": "ClusterIDParameter"
+                        }
+                    },
+                    {
+                        "Key": "kubernetes:application",
+                        "Value": "kube-ingress-aws-controller"
+                    },
+                    {
+                        "Key": "kubernetes:application:method",
+                        "Value": "atomic-cloudformation"
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "74295bc3-f36c-420c-81fa-12d8ca86db47"
+                }
+            }
+        },
+        "ALBTargetGroup": {
+            "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties": {
+                "HealthCheckPath": {
+                    "Ref": "TargetGroupHealthCheckPathParameter"
+                },
+                "Port": {
+                    "Ref": "TargetGroupHealthCheckPortParameter"
+                },
+                "Protocol": "HTTP",
+                "Name": {
+                    "Ref": "LoadBalancerNameParameter"
+                },
+                "VpcId": {
+                    "Ref": "TargetGroupVPCIDParameter"
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "df74e7e4-52fc-42de-b53d-767cd5af9533"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "LoadBalancerARN": {
+            "Description": "The ARN of the LoadBalancer",
+            "Value": {
+                "Ref": "IngressLoadBalancer"
+            }
+        },
+        "LoadBalancerDNSName": {
+            "Description": "DNS name for the LoadBalancer",
+            "Value": {
+                "Fn::GetAtt": [
+                    "IngressLoadBalancer",
+                    "DNSName"
+                ]
+            }
+        },
+        "TargetGroupARN": {
+            "Description": "The ARN of the TargetGroup",
+            "Value": {
+                "Ref": "ALBTargetGroup"
+            }
+        },
+        "HTTPListenerARN": {
+            "Description": "The ARN of the HTTP Listener",
+            "Value": {
+                "Ref": "ALBHTTPListener"
+            }
+        },
+        "HTTPSListenerARN": {
+            "Description": "The ARN of the HTTPS Listener",
+            "Value": {
+                "Ref": "ALBHTTPSListener"
+            }
+        }
+    },
+    "Metadata": {
+        "AWS::CloudFormation::Designer": {
+            "df74e7e4-52fc-42de-b53d-767cd5af9533": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 60,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "74295bc3-f36c-420c-81fa-12d8ca86db47": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 180,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "59afacd1-4e36-42c2-90c3-73c111cf4261": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -50,
+                    "y": 160
+                },
+                "z": 1,
+                "embeds": [],
+                "isassociatedwith": [
+                    "74295bc3-f36c-420c-81fa-12d8ca86db47"
+                ]
+            },
+            "78e381ca-5cf0-4f7b-ab16-abfcf06c791c": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 270,
+                    "y": 180
+                },
+                "z": 1,
+                "embeds": [],
+                "isassociatedwith": [
+                    "74295bc3-f36c-420c-81fa-12d8ca86db47"
+                ]
+            }
+        }
+    }
+}
